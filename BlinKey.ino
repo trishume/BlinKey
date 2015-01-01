@@ -1,30 +1,27 @@
 #include <OnePixel.h>
 #include <util/delay.h>
-//#include <HIDSerial.h>
-//HIDSerial serial;
+#include <avr/power.h>
+#include "blink1.h"
 
 const int ledPin = 0;
 Adafruit_NeoPixel pix = Adafruit_NeoPixel(ledPin);
 
-void rainbow() {
-  uint16_t j;
-
-  for(j=0; j<256; j++) {
-    pix.setPixelColor(j,0,255-j);
+extern "C" {
+  void setPix(unsigned char r, unsigned char g, unsigned char b) {
+    pix.setPixelColor(r,g,b);
     pix.show();
-    _delay_ms(8);
-//    serial.poll();
   }
 }
 
 // the setup routine runs once when you press reset:
 void setup() {
+  clock_prescale_set(clock_div_1);
   pix.begin();
-//  serial.begin();
+  setPix(0,0,200);
+  blinkSetup();
 }
 
 // the loop routine runs over and over again forever:
 void loop() {
-  rainbow();
-//  serial.println("Hi!");
+  blinkLoop();
 }
