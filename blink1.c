@@ -71,6 +71,8 @@ patternline_t ee_pattern[patt_max]  EEMEM = {
   { { 0x00, 0x00, 0x00 }, 100 }, // 11
 };
 
+const uint8_t con_serialnum[4] = {0x1A, 0x00, 0x10, 0x42};
+
 
 
 // next time
@@ -473,6 +475,7 @@ void blinkSetup() {
   // load the serial number from EEPROM into RAM
   for( uint8_t i=0; i< 4; i++ )  {
     uint8_t v = eeprom_read_byte( ee_serialnum + i );
+    if(v == 0xFF) v = con_serialnum[i];
     uint8_t c0 = tohex( v>>4 );
     uint8_t c1 = tohex( v );
     uint8_t p = 1 + (2*i);
