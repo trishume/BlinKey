@@ -6,6 +6,8 @@ extern "C" {
 
   void blinkSetup();
   void blinkLoop();
+  void pressDown();
+  void pressUp();
 
 #ifdef __cplusplus
 }
