@@ -130,27 +130,66 @@ ISR(SIG_OVERFLOW1,ISR_NOBLOCK)  // NOBLOCK allows USB ISR to run
 // -------------------------------------------------------------------------
 
 #define REPORT_COUNT 8
+#define REPID_BLINK 1
+#define REPID_KEYBOARD 2
 
 // The following variables store the status of the current data transfer
 static uchar    currentAddress;
 static uchar    bytesRemaining;
+static uchar idleRate; // repeat rate for keyboards
 
 static uint8_t msgbuf[REPORT_COUNT+1];
+// TODO: try report id as first byte if not working
+static const uint8_t emptyrep[8] = {0,0,0,0,0,0,0,0};
 //static uint8_t msgbufout[8];
 
 // HID descriptor, 1 report, 8 bytes long
-PROGMEM const char usbHidReportDescriptor[24] = {
+PROGMEM const char usbHidReportDescriptor[91] = {
   0x06, 0x00, 0xff,              // USAGE_PAGE (Generic Desktop)
   0x09, 0x01,                    // USAGE (Vendor Usage 1)
   0xa1, 0x01,                    // COLLECTION (Application)
   0x15, 0x00,                    //   LOGICAL_MINIMUM (0)
   0x26, 0xff, 0x00,              //   LOGICAL_MAXIMUM (255)
   0x75, 0x08,                    //   REPORT_SIZE (8)
-  0x85, 0x01,                    //   REPORT_ID (1)
+  0x85, REPID_BLINK,             //   REPORT_ID (1)
   0x95, REPORT_COUNT,            //   REPORT_COUNT (8)
   0x09, 0x00,                    //   USAGE (Undefined)
   0xb2, 0x02, 0x01,              //   FEATURE (Data,Var,Abs,Buf)
-  0xc0                           // END_COLLECTION
+  0xc0,                           // END_COLLECTION
+
+	0x05, 0x01,           // USAGE_PAGE (Generic Desktop)
+	0x09, 0x06,           // USAGE (Keyboard)
+	0xA1, 0x01,           // COLLECTION (Application)
+	0x85, REPID_KEYBOARD, // REPORT_ID
+	0x75, 0x01,           //   REPORT_SIZE (1)
+	0x95, 0x08,           //   REPORT_COUNT (8)
+	0x05, 0x07,           //   USAGE_PAGE (Keyboard)(Key Codes)
+	0x19, 0xE0,           //   USAGE_MINIMUM (Keyboard LeftControl)(224)
+	0x29, 0xE7,           //   USAGE_MAXIMUM (Keyboard Right GUI)(231)
+	0x15, 0x00,           //   LOGICAL_MINIMUM (0)
+	0x25, 0x01,           //   LOGICAL_MAXIMUM (1)
+	0x81, 0x02,           //   INPUT (Data,Var,Abs) ; Modifier byte
+	0x95, 0x01,           //   REPORT_COUNT (1)
+	0x75, 0x08,           //   REPORT_SIZE (8)
+	0x81, 0x03,           //   INPUT (Cnst,Var,Abs) ; Reserved byte
+	0x95, 0x05,           //   REPORT_COUNT (5)
+	0x75, 0x01,           //   REPORT_SIZE (1)
+	0x05, 0x08,           //   USAGE_PAGE (LEDs)
+	0x19, 0x01,           //   USAGE_MINIMUM (Num Lock)
+	0x29, 0x05,           //   USAGE_MAXIMUM (Kana)
+	0x91, 0x02,           //   OUTPUT (Data,Var,Abs) ; LED report
+	0x95, 0x01,           //   REPORT_COUNT (1)
+	0x75, 0x03,           //   REPORT_SIZE (3)
+	0x91, 0x03,           //   OUTPUT (Cnst,Var,Abs) ; LED report padding
+	0x95, 0x05,           //   REPORT_COUNT (5)
+	0x75, 0x08,           //   REPORT_SIZE (8)
+	0x15, 0x00,           //   LOGICAL_MINIMUM (0)
+	0x26, 0xA4, 0x00,     //   LOGICAL_MAXIMUM (164)
+	0x05, 0x07,           //   USAGE_PAGE (Keyboard)(Key Codes)
+	0x19, 0x00,           //   USAGE_MINIMUM (Reserved (no event indicated))(0)
+	0x2A, 0xA4, 0x00,     //   USAGE_MAXIMUM (Keyboard Application)(164)
+	0x81, 0x00,           //   INPUT (Data,Ary,Abs)
+	0xC0,                 // END_COLLECTION
 };
 
 // USB serial number is unique per device, stored in EEPROM
@@ -204,16 +243,29 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
   if((rq->bmRequestType & USBRQ_TYPE_MASK) == USBRQ_TYPE_CLASS) {
     // wValue: ReportType (highbyte), ReportID (lowbyte)
     //uint8_t rid = rq->wValue.bytes[0];  // report Id
-    if(rq->bRequest == USBRQ_HID_GET_REPORT){
+    switch(rq->bRequest) {
+    case USBRQ_HID_GET_REPORT:
+    {
+      if(rq->wValue.bytes[0] == REPID_KEYBOARD) {
+        usbMsgPtr = (uint8_t*)&emptyrep; // send the report data
+        return 8;
+      }
       // since we have only one report type, we can ignore the report-ID
       bytesRemaining = REPORT_COUNT;
       currentAddress = 0;
       return USB_NO_MSG; // use usbFunctionRead() to obtain data
-    } else if(rq->bRequest == USBRQ_HID_SET_REPORT) {
+    }
+    case USBRQ_HID_SET_REPORT:
       // since we have only one report type, we can ignore the report-ID
       bytesRemaining = REPORT_COUNT;
       currentAddress = 0;
       return USB_NO_MSG; // use usbFunctionWrite() to recv data from host
+    case USBRQ_HID_GET_IDLE: // send idle rate to PC as required by spec
+      usbMsgPtr = &idleRate;
+      return 1;
+    case USBRQ_HID_SET_IDLE: // save idle rate as required by spec
+      idleRate = rq->wValue.bytes[1];
+      return 0;
     }
   }else{
     // ignore vendor type requests, we don't use any
