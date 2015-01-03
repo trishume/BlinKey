@@ -30,6 +30,9 @@ void setup() {
 void loop() {
   unsigned int t = millis();
   blinkLoop();
+  if((t-rt) > 30 && ensureUp()) {
+    rt = t;
+  }
   if(!(PINB & (1<<PB2))) { // button pressed (PB2 at ground voltage)
     if(state == 0 && (t-bt) > 100) {
       pressDown();
@@ -38,9 +41,8 @@ void loop() {
     }
     state = 1;
     /* _delay_ms(5); */
-    setPix(0,100,0);
+    /* setPix(0,100,0); */
   } else {
     state = 0;
   }
-  rt = t;
 }

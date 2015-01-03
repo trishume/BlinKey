@@ -8,6 +8,7 @@ extern "C" {
   void blinkLoop();
   void pressDown();
   void pressUp();
+  int ensureUp();
 
 #ifdef __cplusplus
 }

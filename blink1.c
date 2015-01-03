@@ -141,7 +141,7 @@ static uchar idleRate; // repeat rate for keyboards
 static uint8_t msgbuf[REPORT_COUNT+1];
 // TODO: try report id as first byte if not working
 static const uint8_t emptyrep[8] = {REPID_KEYBOARD,0,0,0,0,0,0,0};
-static const uint8_t downrep[8]  = {REPID_KEYBOARD,2,0,4,0,0,0,0}; // shift a
+static const uint8_t downrep[8]  = {REPID_KEYBOARD,8,0,0x2B,0,0,0,0}; // cmd+tab
 //static uint8_t msgbufout[8];
 
 // HID descriptor, 1 report, 8 bytes long
@@ -560,14 +560,11 @@ void blinkLoop() {
 }
 
 
-void keyReportSend(uint8_t *buffer)
-{
+void keyReportSend(uint8_t *buffer) {
 	// perform usb background tasks until the report can be sent, then send it
-	while (1)
-	{
+	while (1) {
 		usbPoll(); // this needs to be called at least once every 10 ms
-		if (usbInterruptIsReady())
-		{
+		if (usbInterruptIsReady()) {
 			usbSetInterrupt(buffer, REPORT_COUNT); // send
 			break;
 
@@ -581,6 +578,14 @@ void pressDown() {
 }
 void pressUp() {
   keyReportSend(emptyrep);
+}
+
+int ensureUp() {
+  if (usbInterruptIsReady()) {
+    usbSetInterrupt(emptyrep, REPORT_COUNT); // send
+    return 1;
+  }
+  return 0;
 }
 
 
