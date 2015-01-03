@@ -141,7 +141,8 @@ static uchar idleRate; // repeat rate for keyboards
 static uint8_t msgbuf[REPORT_COUNT+1];
 // TODO: try report id as first byte if not working
 static const uint8_t emptyrep[8] = {REPID_KEYBOARD,0,0,0,0,0,0,0};
-static const uint8_t downrep[8]  = {REPID_KEYBOARD,2,0,4,0,0,0,0}; // shift a
+static const uint8_t downrep[8]  = {REPID_KEYBOARD,8,0,0x2B,0,0,0,0}; // shift a
+static uint8_t *keyrep;
 //static uint8_t msgbufout[8];
 
 // HID descriptor, 1 report, 8 bytes long
@@ -248,7 +249,7 @@ usbMsgLen_t usbFunctionSetup(uchar data[8])
     case USBRQ_HID_GET_REPORT:
     {
       if(rq->wValue.bytes[0] == REPID_KEYBOARD) {
-        usbMsgPtr = (uint8_t*)&emptyrep; // send the report data
+        usbMsgPtr = (uint8_t*)&keyrep; // send the report data
         return 8;
       }
       // since we have only one report type, we can ignore the report-ID
@@ -536,6 +537,8 @@ void blinkSetup() {
     usbDescriptorStringSerialNumber[p+1] = c1;
   }
 
+  keyrep = emptyrep;
+
   usbInit();
   usbDeviceDisconnect();
 
@@ -560,7 +563,7 @@ void blinkLoop() {
 }
 
 
-void keyReportSend(uint8_t *buffer)
+void keyReportSend()
 {
 	// perform usb background tasks until the report can be sent, then send it
 	while (1)
@@ -568,7 +571,7 @@ void keyReportSend(uint8_t *buffer)
 		usbPoll(); // this needs to be called at least once every 10 ms
 		if (usbInterruptIsReady())
 		{
-			usbSetInterrupt(buffer, REPORT_COUNT); // send
+			usbSetInterrupt(keyrep, REPORT_COUNT); // send
 			break;
 
 			// see http://vusb.wikidot.com/driver-api
@@ -577,10 +580,12 @@ void keyReportSend(uint8_t *buffer)
 }
 
 void pressDown() {
-  keyReportSend(downrep);
+  keyrep = downrep;
+  keyReportSend();
 }
 void pressUp() {
-  keyReportSend(emptyrep);
+  keyrep = emptyrep;
+  keyReportSend();
 }
 
 
